@@ -41,7 +41,6 @@ public class TaskQueue : ITaskQueue
         );
     }
 
-
     public async ValueTask<Func<CancellationToken, ValueTask>> DequeueAsync(
         CancellationToken cancellationToken)
     {
