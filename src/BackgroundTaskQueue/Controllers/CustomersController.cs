@@ -1,7 +1,7 @@
 using BackgroundTaskQueue.Handlers.Commands;
+using BackgroundTaskQueue.Handlers.Notifications;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
-using BackgroundTaskQueue.Handlers.Notifications;
 
 namespace BackgroundTaskQueue.Controllers;
 
@@ -25,9 +25,9 @@ public class CustomersController : ControllerBase
     public async Task<Guid> CreateOrder(CreateCustomerCommand command)
     {
         var customerId = await _mediator.Send(command);
-        
+
         await _TaskQueue.QueueNotification(new CustomerCreatedNotification
-            {email = command.Email, customerId = customerId});
+            (customerId));
 
         return customerId;
     }

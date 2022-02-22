@@ -14,11 +14,6 @@ public sealed class QueuedHostedService : BackgroundService
 
     protected override Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation(
-            $"{nameof(QueuedHostedService)} is running.{NewLine}" +
-            $"{NewLine}Tap W to add a work item to the " +
-            $"background queue.{NewLine}");
-
         return ProcessTaskQueueAsync(stoppingToken);
     }
 
@@ -28,13 +23,17 @@ public sealed class QueuedHostedService : BackgroundService
         {
             try
             {
-                Func<CancellationToken, ValueTask>? workItem =
-                    await _taskQueue.DequeueAsync(stoppingToken);
+                var workItems =
+                    await _taskQueue.BatchDequeueAsync(3, TimeSpan.FromSeconds(1), stoppingToken);
 
-                await workItem(stoppingToken);
+                if (workItems.Count > 0)
+                    await Task.WhenAll(workItems.Select(async work => await work(stoppingToken)));
+                else
+                    _logger.LogInformation("No work items. Continue");
             }
             catch (OperationCanceledException)
             {
+                _logger.LogWarning("Operation Canceled.");
                 // Prevent throwing if stoppingToken was signaled
             }
             catch (Exception ex)
@@ -42,6 +41,8 @@ public sealed class QueuedHostedService : BackgroundService
                 _logger.LogError(ex, "Error occurred executing task work item.");
             }
         }
+
+        _logger.LogInformation("Exiting...");
     }
 
     public override async Task StopAsync(CancellationToken stoppingToken)

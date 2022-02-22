@@ -1,6 +1,7 @@
 using BackgroundTaskQueue;
 using BackgroundTaskQueue.Controllers;
 using BackgroundTaskQueue.Handlers.Commands;
+using BackgroundTaskQueue.Handlers.Notifications;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -18,9 +19,10 @@ builder.Services.AddMediatR(typeof(CreateCustomerCommand).Assembly);
 builder.Services.AddHostedService<QueuedHostedService>();
 builder.Services.AddSingleton<ITaskQueue>(services =>
 {
-    const int queueCapacity = 100;
-
-    return new TaskQueue(queueCapacity, services.GetRequiredService<IMediator>());
+    var queueCapacity = 100;
+    var logger = services.GetService<ILogger<TaskQueue>>();
+    var parallelizedMediator = new ParallelizedMediator(services.GetRequiredService<ServiceFactory>());
+    return new TaskQueue(queueCapacity, parallelizedMediator, logger);
 });
 
 var app = builder.Build();

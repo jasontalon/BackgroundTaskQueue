@@ -1,4 +1,5 @@
 using System.Threading.Channels;
+using BackgroundTaskQueue.Handlers.Notifications;
 using MediatR;
 
 namespace BackgroundTaskQueue;
@@ -19,9 +20,10 @@ public interface ITaskQueue
 public class TaskQueue : ITaskQueue
 {
     private readonly IMediator _mediator;
+    private readonly ILogger<TaskQueue>? _logger;
     private readonly Channel<Func<CancellationToken, ValueTask>> _queue;
 
-    public TaskQueue(int capacity, IMediator mediator)
+    public TaskQueue(int capacity, ParallelizedMediator mediator, ILogger<TaskQueue>? logger)
     {
         BoundedChannelOptions options = new(capacity)
         {
@@ -29,6 +31,7 @@ public class TaskQueue : ITaskQueue
         };
         _queue = Channel.CreateBounded<Func<CancellationToken, ValueTask>>(options);
         _mediator = mediator;
+        _logger = logger;
     }
 
     //https://stackoverflow.com/questions/63881607/how-to-read-remaining-items-in-channel-less-than-batch-size-if-there-is-no-new
@@ -76,8 +79,9 @@ public class TaskQueue : ITaskQueue
             throw new ArgumentNullException(nameof(notification));
         }
 
+        _logger?.LogInformation($"Queue for {notification.GetType().Name}");
         await _queue.Writer.WriteAsync(
-            async (cancellationToken) => { await _mediator.Publish(notification, cancellationToken); }
+            async cancellationToken => { await _mediator.Publish(notification, cancellationToken); }
         );
     }
 
