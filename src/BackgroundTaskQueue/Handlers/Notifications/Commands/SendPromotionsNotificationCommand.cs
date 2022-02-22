@@ -11,6 +11,6 @@ public class SendPromotionsNotificationCommandHandler : BaseNotificationHandler<
     {
         var rand = new Random();
 
-        await Task.Delay(TimeSpan.FromSeconds(rand.Next(1, 3)), cancellationToken);
+        await Task.Delay(TimeSpan.FromSeconds(6), cancellationToken);
     }
 }
