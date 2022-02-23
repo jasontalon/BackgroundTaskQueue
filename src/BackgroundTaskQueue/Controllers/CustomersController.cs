@@ -10,15 +10,15 @@ namespace BackgroundTaskQueue.Controllers;
 public class CustomersController : ControllerBase
 {
     private readonly IMediator _mediator;
-    private readonly ITaskQueue _TaskQueue;
     private readonly ILogger<CustomersController> _logger;
+    private readonly Dispatch _dispatch;
 
     public CustomersController(IMediator mediator, ITaskQueue TaskQueue,
-        ILogger<CustomersController> logger)
+        ILogger<CustomersController> logger, Dispatch dispatch)
     {
         _mediator = mediator;
-        _TaskQueue = TaskQueue;
         _logger = logger;
+        _dispatch = dispatch;
     }
 
     [HttpPost]
@@ -26,9 +26,10 @@ public class CustomersController : ControllerBase
     {
         var customerId = await _mediator.Send(command);
 
-        await _TaskQueue.QueueNotification(new CustomerCreatedNotification
-            (customerId));
+        //await _TaskQueue.QueueNotification(new CustomerCreatedNotification
+        //    (customerId));
 
+        await _dispatch(new CustomerCreatedNotification());
         return customerId;
     }
 }

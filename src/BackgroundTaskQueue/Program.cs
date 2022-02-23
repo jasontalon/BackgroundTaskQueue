@@ -1,9 +1,7 @@
 using BackgroundTaskQueue;
-using BackgroundTaskQueue.Controllers;
 using BackgroundTaskQueue.Handlers.Commands;
-using BackgroundTaskQueue.Handlers.Notifications;
 using MediatR;
-using Microsoft.AspNetCore.Mvc;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,16 +15,34 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddMediatR(typeof(CreateCustomerCommand).Assembly);
 
 builder.Services.AddHostedService<QueuedHostedService>();
+
+
 builder.Services.AddSingleton<ITaskQueue>(services =>
 {
     var queueCapacity = 100;
     var logger = services.GetService<ILogger<TaskQueue>>();
+
     var parallelizedMediator = new ParallelizedMediator(services.GetRequiredService<ServiceFactory>());
     return new TaskQueue(queueCapacity, parallelizedMediator, logger);
 });
 
-var app = builder.Build();
+builder.Services.AddScoped<Dispatch>(services =>
+{
+    var taskQueue = services.GetRequiredService<ITaskQueue>();
+    var logger = services.GetRequiredService<ILogger<Dispatch>>();
 
+    return async notifications =>
+    {
+        foreach (var notification in notifications)
+        {
+            logger.LogInformation($"{notification.GetType().Name} Logged!");
+
+            await taskQueue.EnqueueAsync(notification);
+        }
+    };
+});
+
+var app = builder.Build();
 
 app.UseAuthorization();
 
@@ -39,11 +55,6 @@ if (app.Environment.IsDevelopment())
 
 app.MapControllers();
 
-app.MapGet("/ping", async ([FromServices] ILogger<CustomersController> logger) =>
-{
-    await Task.Delay(250);
-    logger.LogInformation("Ping! Pong!");
-    return "Pong";
-});
+app.MapGet("/ping", () => "Pong!");
 
 app.Run();

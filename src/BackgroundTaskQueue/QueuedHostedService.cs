@@ -1,5 +1,3 @@
-using static System.Environment;
-
 namespace BackgroundTaskQueue;
 
 public sealed class QueuedHostedService : BackgroundService
@@ -24,7 +22,7 @@ public sealed class QueuedHostedService : BackgroundService
             try
             {
                 var workItems =
-                    await _taskQueue.BatchDequeueAsync(3, TimeSpan.FromSeconds(1), stoppingToken);
+                    await _taskQueue.DequeueAsync(3, TimeSpan.FromSeconds(1), stoppingToken);
 
                 if (workItems.Count > 0)
                     await Task.WhenAll(workItems.Select(async work => await work(stoppingToken)));

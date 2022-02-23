@@ -1,5 +1,4 @@
 using System.Threading.Channels;
-using BackgroundTaskQueue.Handlers.Notifications;
 using MediatR;
 
 namespace BackgroundTaskQueue;
@@ -11,10 +10,10 @@ public interface ITaskQueue
     ValueTask<Func<CancellationToken, ValueTask>> DequeueAsync(
         CancellationToken cancellationToken);
 
-    ValueTask<List<Func<CancellationToken, ValueTask>>> BatchDequeueAsync(int batchSize, TimeSpan timeOut,
+    ValueTask<List<Func<CancellationToken, ValueTask>>> DequeueAsync(int batchSize = 1, TimeSpan? timeOut = null,
         CancellationToken cancellationToken = default);
 
-    ValueTask QueueNotification(INotification notification);
+    ValueTask EnqueueAsync(INotification notification);
 }
 
 public class TaskQueue : ITaskQueue
@@ -35,14 +34,16 @@ public class TaskQueue : ITaskQueue
     }
 
     //https://stackoverflow.com/questions/63881607/how-to-read-remaining-items-in-channel-less-than-batch-size-if-there-is-no-new
-    public async ValueTask<List<Func<CancellationToken, ValueTask>>> BatchDequeueAsync(int batchSize,
-        TimeSpan timeOut,
+    public async ValueTask<List<Func<CancellationToken, ValueTask>>> DequeueAsync(int batchSize = 1,
+        TimeSpan? timeOut = null,
         CancellationToken cancellationToken = default)
     {
+        timeOut ??= TimeSpan.FromSeconds(1);
+
         var workItems = new List<Func<CancellationToken, ValueTask>>();
 
         using var linkedCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        linkedCancellationTokenSource.CancelAfter(timeOut);
+        linkedCancellationTokenSource.CancelAfter(timeOut.Value);
 
         while (true)
         {
@@ -71,7 +72,7 @@ public class TaskQueue : ITaskQueue
         return workItems;
     }
 
-    public async ValueTask QueueNotification(
+    public async ValueTask EnqueueAsync(
         INotification notification)
     {
         if (notification is null)
@@ -80,8 +81,15 @@ public class TaskQueue : ITaskQueue
         }
 
         _logger?.LogInformation($"Queue for {notification.GetType().Name}");
+
         await _queue.Writer.WriteAsync(
-            async cancellationToken => { await _mediator.Publish(notification, cancellationToken); }
+            async cancellationToken =>
+            {
+                var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                cancellationTokenSource.CancelAfter(TimeSpan.FromSeconds(5));
+
+                await _mediator.Publish(notification, cancellationTokenSource.Token);
+            }
         );
     }
 
