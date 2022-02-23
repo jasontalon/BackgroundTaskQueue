@@ -7,9 +7,6 @@ namespace BackgroundTaskQueue;
 
 public interface ITaskQueue
 {
-    ValueTask<Func<CancellationToken, ValueTask>> DequeueAsync(
-        CancellationToken cancellationToken);
-
     ValueTask<List<Func<CancellationToken, ValueTask>>> DequeueAsync(int batchSize = 1, TimeSpan? timeOut = null,
         CancellationToken cancellationToken = default);
 
@@ -22,13 +19,9 @@ public class TaskQueue : ITaskQueue
     private readonly ILogger<TaskQueue>? _logger;
     private readonly Channel<Func<CancellationToken, ValueTask>> _queue;
 
-    public TaskQueue(int capacity, ParallelizedMediator mediator, ILogger<TaskQueue>? logger)
+    public TaskQueue(ParallelizedMediator mediator, ILogger<TaskQueue>? logger)
     {
-        BoundedChannelOptions options = new(capacity)
-        {
-            FullMode = BoundedChannelFullMode.Wait
-        };
-        _queue = Channel.CreateBounded<Func<CancellationToken, ValueTask>>(options);
+        _queue = Channel.CreateUnbounded<Func<CancellationToken, ValueTask>>();
         _mediator = mediator;
         _logger = logger;
     }
@@ -38,6 +31,9 @@ public class TaskQueue : ITaskQueue
         TimeSpan? timeOut = null,
         CancellationToken cancellationToken = default)
     {
+        if (batchSize == 1 && !timeOut.HasValue)
+            return new List<Func<CancellationToken, ValueTask>> {await _queue.Reader.ReadAsync(cancellationToken)};
+
         timeOut ??= TimeSpan.FromSeconds(1);
 
         var workItems = new List<Func<CancellationToken, ValueTask>>();
@@ -91,14 +87,5 @@ public class TaskQueue : ITaskQueue
                 await _mediator.Publish(notification, cancellationTokenSource.Token);
             }
         );
-    }
-
-    public async ValueTask<Func<CancellationToken, ValueTask>> DequeueAsync(
-        CancellationToken cancellationToken)
-    {
-        var workItem =
-            await _queue.Reader.ReadAsync(cancellationToken);
-
-        return workItem;
     }
 }

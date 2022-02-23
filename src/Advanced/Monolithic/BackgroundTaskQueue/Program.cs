@@ -16,14 +16,12 @@ builder.Services.AddMediatR(typeof(CreateCustomerCommand).Assembly);
 
 builder.Services.AddHostedService<QueuedHostedService>();
 
-
 builder.Services.AddSingleton<ITaskQueue>(services =>
 {
-    var queueCapacity = 100;
     var logger = services.GetService<ILogger<TaskQueue>>();
 
     var parallelizedMediator = new ParallelizedMediator(services.GetRequiredService<ServiceFactory>());
-    return new TaskQueue(queueCapacity, parallelizedMediator, logger);
+    return new TaskQueue(parallelizedMediator, logger);
 });
 
 builder.Services.AddScoped<Dispatch>(services =>

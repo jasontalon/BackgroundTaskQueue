@@ -26,10 +26,7 @@ public class CustomersController : ControllerBase
     {
         var customerId = await _mediator.Send(command);
 
-        //await _TaskQueue.QueueNotification(new CustomerCreatedNotification
-        //    (customerId));
-
-        await _dispatch(new CustomerCreatedNotification());
+        await _dispatch(new CustomerCreatedNotification(customerId));
         return customerId;
     }
 }
