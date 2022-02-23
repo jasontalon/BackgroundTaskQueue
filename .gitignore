@@ -3,3 +3,5 @@
 **/obj
 **/Properties
 **/node_modules
+.idea
+.DS_STORE
